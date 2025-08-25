@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Keychain Order Form</title>
+    <!-- Use Tailwind CSS for easy styling -->
+     <link rel="stylesheet" href="styles/main.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Use Inter font for a clean, modern look */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .container {
+            max-width: 768px;
+        }
+        /* Custom border style for the main form container */
+        .custom-border {
+            border-color: #feaf00;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4">
+
+    <!-- Logo at the top, outside the main container -->
+    <div class="flex justify-center mb-4">
+        <!-- Using a more compatible URL for the logo for demonstration purposes -->
+        <img src="https://3dstudiomatto.s3.ap-southeast-1.amazonaws.com/3D+Studio+Matto+logo+-+no+outline.png" alt="Company Logo" class="rounded-lg logo">
+    </div>
+
+    <!-- Main Container -->
+    <div class="container bg-white p-8 rounded-2xl shadow-xl border custom-border my-8">
+        
+        <h1 class="text-3xl font-bold text-gray-900 mb-2 text-center">Keychain Order Form</h1>
+        <p class="text-gray-600 mb-6 text-center">Customize your order below!</p>
+
+        <!-- Form for submission -->
+        <form id="orderForm" class="space-y-8">
+            <!-- Facebook Name Input -->
+            <div>
+                <label for="facebookName" class="block text-sm font-medium text-gray-700 mb-1">Facebook Name</label>
+                <input type="text" id="facebookName" name="facebookName" required
+                       class="mt-1 block w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 transition duration-300">
+            </div>
+
+            <!-- Items Container -->
+            <div id="itemsContainer" class="space-y-6">
+                <!-- Dynamic item fields will be appended here -->
+            </div>
+
+            <!-- "Add Item" Button -->
+            <button type="button" id="addItemBtn"
+                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-300">
+                Add Item
+            </button>
+
+            <!-- Submit Button -->
+            <button type="submit" id="submitBtn"
+                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-300 mt-6">
+                Submit Order
+            </button>
+        </form>
+    </div>
+
+    <!-- Image Modal -->
+    <div id="imageModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-2xl bg-white">
+            <div class="mt-3 text-center">
+                <img id="modalImage" src="" alt="Sample Image" class="w-full rounded-lg">
+                <div class="mt-4">
+                    <button id="closeImageModalBtn"
+                            class="px-4 py-2 bg-red-500 text-white text-base font-medium rounded-lg shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Status Modal -->
+    <div id="statusModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-2xl bg-white">
+            <div class="mt-3 text-center">
+                <h3 id="statusTitle" class="text-lg leading-6 font-medium text-gray-900"></h3>
+                <div class="mt-2 px-7 py-3">
+                    <p id="statusMessage" class="text-sm text-gray-500"></p>
+                </div>
+                <div class="mt-4">
+                    <button id="closeStatusModalBtn"
+                            class="px-4 py-2 bg-indigo-600 text-white text-base font-medium rounded-lg shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Set the URL for your published Google Apps Script Web App here!
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzo983zV081LJhe8OcxOyZmjHLheToM9f_0BYVaMvYA1XStojBkBD1hu-O_Nzj5yiur/exec';
+        
+        // DOM Elements
+        const orderForm = document.getElementById('orderForm');
+        const itemsContainer = document.getElementById('itemsContainer');
+        const addItemBtn = document.getElementById('addItemBtn');
+        const submitBtn = document.getElementById('submitBtn');
+
+        // Modal Elements
+        const imageModal = document.getElementById('imageModal');
+        const modalImage = document.getElementById('modalImage');
+        const closeImageModalBtn = document.getElementById('closeImageModalBtn');
+        const statusModal = document.getElementById('statusModal');
+        const statusTitle = document.getElementById('statusTitle');
+        const statusMessage = document.getElementById('statusMessage');
+        const closeStatusModalBtn = document.getElementById('closeStatusModalBtn');
+
+        // Initial form state
+        let itemCounter = 0;
+        
+        // --- Helper Functions for Modals and Dynamic Fields ---
+
+        // Shows the image modal with a specific image
+        const showImageModal = (imageSrc) => {
+            modalImage.src = imageSrc;
+            imageModal.classList.remove('hidden');
+        };
+
+        // Hides the image modal
+        const hideImageModal = () => {
+            imageModal.classList.add('hidden');
+        };
+
+        // Shows the status modal with a given title and message
+        const showStatusModal = (title, message) => {
+            statusTitle.textContent = title;
+            statusMessage.textContent = message;
+            statusModal.classList.remove('hidden');
+        };
+
+        // Hides the status modal
+        const hideStatusModal = () => {
+            statusModal.classList.add('hidden');
+        };
+
+        // Create a new item container with all the necessary fields
+        const createItemContainer = () => {
+            const id = itemCounter++;
+            
+            // Main container
+            const container = document.createElement('div');
+            container.classList.add('p-6', 'border', 'border-gray-300', 'rounded-lg', 'shadow-sm', 'relative');
+            container.dataset.itemId = `item-${id}`;
+
+            // Create "Remove Item" button
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.classList.add('absolute', 'top-2', 'right-2');
+            removeBtn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-500 hover:text-red-700 transition" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                </svg>
+            `;
+            removeBtn.addEventListener('click', () => {
+                container.remove();
+            });
+            container.appendChild(removeBtn);
+
+            // Keychain Variant Dropdown
+            const variantDiv = document.createElement('div');
+            variantDiv.classList.add('mb-4');
+            variantDiv.innerHTML = `
+                <label for="variant-${id}" class="block text-sm font-medium text-gray-700 mb-1">Keychain Variant</label>
+                <select id="variant-${id}" name="keychainVariant" required
+                        class="mt-1 block w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 transition duration-300">
+                    <option value="">-- Select a variant --</option>
+                    <option value="Version 1">Name Tag Version 1</option>
+                    <option value="Version 2">Name Tag Version 2</option>
+                    <option value="Mini">Name Tag Mini</option>
+                    <option value="Memory">Memory Keychain</option>
+                </select>
+            `;
+            container.appendChild(variantDiv);
+
+            // Conditional Fields Container
+            const conditionalContainer = document.createElement('div');
+            conditionalContainer.classList.add('space-y-6');
+            container.appendChild(conditionalContainer);
+
+            // Add change listener to the variant dropdown
+            const variantSelect = variantDiv.querySelector('select[name="keychainVariant"]');
+            variantSelect.addEventListener('change', (e) => {
+                renderConditionalFields(e.target.value, conditionalContainer);
+            });
+
+            return container;
+        };
+        
+        // Helper function to create a text input field
+        const createInputField = (label, name, required = true) => {
+            const div = document.createElement('div');
+            div.innerHTML = `
+                <label class="block text-sm font-medium text-gray-700 mb-1">${label}</label>
+                <input type="text" name="${name}" ${required ? 'required' : ''}
+                       class="mt-1 block w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 transition duration-300">
+            `;
+            return div;
+        };
+        
+        // Helper function to create a textarea field
+        const createTextareaField = (label, name) => {
+            const div = document.createElement('div');
+            div.innerHTML = `
+                <label class="block text-sm font-medium text-gray-700 mb-1">${label}</label>
+                <textarea name="${name}" rows="2" class="mt-1 block w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 transition duration-300"></textarea>
+            `;
+            return div;
+        };
+
+        // Renders the correct fields based on the selected variant
+        const renderConditionalFields = (variant, parent) => {
+            // Clear previous fields
+            parent.innerHTML = '';
+            
+            // Helper function to create a dropdown with a modal button
+            const createDropdownWithModal = (label, name, options, imageUrl) => {
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block text-sm font-medium text-gray-700">${label}</label>
+                        <button type="button" class="text-indigo-600 hover:underline text-xs" data-image-src="${imageUrl}">
+                            Show Styles
+                        </button>
+                    </div>
+                    <select name="${name}" required
+                            class="mt-1 block w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 transition duration-300">
+                        <option value="">-- Select an option --</option>
+                        ${options.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+                    </select>
+                `;
+                // Attach the event listener to the button after it's been created
+                div.querySelector('button').addEventListener('click', (e) => {
+                    e.preventDefault();
+                    showImageModal(e.target.dataset.imageSrc);
+                });
+                return div;
+            };
+            
+            // Generate and append the correct fields
+            if (variant === 'Version 1') {
+                parent.appendChild(createInputField('Text', 'text'));
+                parent.appendChild(createDropdownWithModal('Font Style', 'fontStyle', ['Style A', 'Style B'], 'https://placehold.co/400x300/e2e8f0/1a202c?text=Font+Styles'));
+                parent.appendChild(createDropdownWithModal('Font Color', 'fontColor', ['Color 1', 'Color 2'], 'https://placehold.co/400x300/e2e8f0/1a202c?text=Font+Colors'));
+                parent.appendChild(createDropdownWithModal('Background Color', 'backgroundColor', ['Color X', 'Color Y'], 'https://placehold.co/400x300/e2e8f0/1a202c?text=Background+Colors'));
+                parent.appendChild(createDropdownWithModal('Clasp Color', 'claspColor', ['Color I', 'Color J'], 'https://placehold.co/400x300/e2e8f0/1a202c?text=Clasp+Colors'));
+                parent.appendChild(createTextareaField('Note (optional)', 'note'));
+            } else if (variant === 'Version 2') {
+                parent.appendChild(createInputField('Text', 'text'));
+                parent.appendChild(createDropdownWithModal('Font Color', 'fontColor', ['Color 1', 'Color 2'], 'https://placehold.co/400x300/e2e8f0/1a202c?text=Font+Colors'));
+                parent.appendChild(createDropdownWithModal('Outline Color', 'outlineColor', ['Color 3', 'Color 4'], 'https://placehold.co/400x300/e2e8f0/1a202c?text=Outline+Colors'));
+                parent.appendChild(createTextareaField('Note (optional)', 'note'));
+            } else if (variant === 'Mini') {
+                 parent.appendChild(createInputField('Text', 'text'));
+                parent.appendChild(createDropdownWithModal('Font Color', 'fontColor', ['Color 1', 'Color 2'], 'https://placehold.co/400x300/e2e8f0/1a202c?text=Font+Colors'));
+                parent.appendChild(createDropdownWithModal('Frame Color', 'frameColor', ['Color A', 'Color B'], 'https://placehold.co/400x300/e2e8f0/1a202c?text=Frame+Colors'));
+                parent.appendChild(createTextareaField('Note (optional)', 'note'));
+            } else if (variant === 'Memory') {
+                parent.appendChild(createDropdownWithModal('Color', 'memoryKeychainColor', ['Color X', 'Color Y'], 'https://placehold.co/400x300/e2e8f0/1a202c?text=Memory+Colors'));
+                
+                // IMPORTANT: The fetch call sends JSON, which cannot handle files.
+                // We've changed this to a text input for a photo URL instead.
+                parent.appendChild(createInputField('Photo URL', 'photoUrl'));
+            }
+        };
+        
+        // --- Event Listeners ---
+        
+        // Event listener for the "Add Item" button
+        addItemBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const newItem = createItemContainer();
+            itemsContainer.appendChild(newItem);
+        });
+
+        // Event listener for the "Close Image Modal" button
+        closeImageModalBtn.addEventListener('click', hideImageModal);
+        
+        // Event listener for the "Close Status Modal" button
+        closeStatusModalBtn.addEventListener('click', hideStatusModal);
+
+        // Event listener for form submission
+        orderForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Disable the submit button and show loading status
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+
+            const facebookName = document.getElementById('facebookName').value;
+            const items = [];
+            const itemElements = itemsContainer.querySelectorAll('[data-item-id]');
+
+            // Check if there are any items to submit
+            if (itemElements.length === 0) {
+                showStatusModal('Error', 'Please add at least one item to your order.');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Order';
+                return;
+            }
+
+            // Loop through each item and build a structured data object
+            for (const itemEl of itemElements) {
+                // Collect the data manually from the inputs within this specific item container
+                const itemData = {};
+                const inputs = itemEl.querySelectorAll('input, select, textarea');
+                inputs.forEach(input => {
+                    if (input.name) {
+                        itemData[input.name] = input.value;
+                    }
+                });
+                
+                // This is a mapping from our form fields to the sheet columns.
+                // The Google Apps Script will need to handle this to correctly place the data.
+                const mappedItem = {
+                    'Keychain Variant': itemData.keychainVariant || '',
+                    'Text': itemData.text || '',
+                    'Font Style': itemData.fontStyle || '',
+                    'Font Color': itemData.fontColor || '',
+                    'Background Color': itemData.backgroundColor || '',
+                    'Clasp Color': itemData.claspColor || '',
+                    'Outline Color': itemData.outlineColor || '',
+                    'Frame Color': itemData.frameColor || '',
+                    'Memory Keychain Color': itemData.memoryKeychainColor || '',
+                    'Note': itemData.note || '',
+                    'Photo URL': itemData.photoUrl || ''
+                };
+
+                items.push(mappedItem);
+            }
+
+            // Combine all form data into a single JSON object
+            const orderData = {
+                'Facebook Name': facebookName,
+                'Timestamp': new Date().toISOString(),
+                'Items': items
+            };
+
+            try {
+                // Send the JSON object to the Google Apps Script
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify(orderData),
+                    headers: {
+                        'Content-Type': 'text/plain' // Use text/plain for raw JSON
+                    }
+                });
+                
+                // Read the response text
+                const resultText = await response.text();
+                const result = JSON.parse(resultText);
+
+                if (result.status === 'success') {
+                    showStatusModal('Order Submitted!', 'Your order has been sent successfully. We will contact you soon!');
+                    orderForm.reset();
+                    itemsContainer.innerHTML = '';
+                    itemCounter = 0; // Reset counter for new orders
+                } else {
+                    showStatusModal('Submission Failed', `There was an issue with your order: ${result.message}`);
+                    console.error('Submission failed:', result.message);
+                }
+            } catch (error) {
+                showStatusModal('Network Error', 'A network error occurred. Please check your connection and try again.');
+                console.error('Error during fetch:', error);
+            } finally {
+                // Re-enable the submit button
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Order';
+            }
+        });
+    </script>
+</body>
+</html>
