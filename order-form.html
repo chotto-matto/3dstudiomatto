@@ -99,7 +99,7 @@
 
     <script>
         // Set the URL for your published Google Apps Script Web App here!
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz_mrf5brWasAHOVplJP2nOxT-eVDwkxqTkrk8W74tCCYSxmfZkfhD0c2BdUGhlieRd/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxa06OtaHq0doaKmcda3xKeqISNM1ivXknEskIVIOLz9Oe1Sh-Wie3L2tRqFu6BPXio/exec';
         
         // DOM Elements
         const orderForm = document.getElementById('orderForm');
@@ -347,36 +347,26 @@
             };
 
             try {
-                // Send the JSON object to the Google Apps Script
-                const response = await fetch(SCRIPT_URL, {
+                await fetch(SCRIPT_URL, {
                     method: 'POST',
+                    mode: 'no-cors',
                     body: JSON.stringify(orderData),
                     headers: {
-                        'Content-Type': 'text/plain' // Use text/plain for raw JSON
+                        'Content-Type': 'text/plain'
                     }
                 });
-                
-                // Read the response text
-                const resultText = await response.text();
-                const result = JSON.parse(resultText);
 
-                if (result.status === 'success') {
-                    showStatusModal('Order Submitted!', 'Your order has been sent successfully. We will contact you soon!');
-                    orderForm.reset();
-                    itemsContainer.innerHTML = '';
-                    itemCounter = 0; // Reset counter for new orders
-                } else {
-                    showStatusModal('Submission Failed', `There was an issue with your order: ${result.message}`);
-                    console.error('Submission failed:', result.message);
-                }
+                showStatusModal('Order Submitted!', 'Your order has been sent successfully. We will contact you soon!');
+                orderForm.reset();
+                itemsContainer.innerHTML = '';
+                itemCounter = 0;
             } catch (error) {
                 showStatusModal('Network Error', 'A network error occurred. Please check your connection and try again.');
-                console.error('Error during fetch:', error);
             } finally {
-                // Re-enable the submit button
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Submit Order';
             }
+
         });
     </script>
 </body>
