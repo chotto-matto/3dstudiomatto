@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Keychain Order Form</title>
+    <!-- Use Tailwind CSS for easy styling -->
+     <link rel="stylesheet" href="styles/main.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Use Inter font for a clean, modern look */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .container {
+            max-width: 768px;
+        }
+        /* Custom border style for the main form container */
+        .custom-border {
+            border-color: #feaf00;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4">
+
+    <!-- Logo at the top, outside the main container -->
+    <div class="flex justify-center mb-4">
+        <!-- Using a more compatible URL for the logo for demonstration purposes -->
+        <img src="https://3dstudiomatto.s3.ap-southeast-1.amazonaws.com/3D+Studio+Matto+logo+-+no+outline.png" alt="Company Logo" class="rounded-lg logo">
+    </div>
+
+    <!-- Main Container -->
+    <div class="container bg-white p-8 rounded-2xl shadow-xl border custom-border my-8">
+        
+        <h1 class="text-3xl font-bold text-gray-900 mb-2 text-center">Keychain Order Form</h1>
+        <p class="text-gray-600 mb-6 text-center">Customize your order below!</p>
+
+        <!-- Form for submission -->
+        <form id="orderForm" class="space-y-8">
+            <!-- Facebook Name Input -->
+            <div>
+                <label for="customerName" class="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
+                <input type="text" id="customerName" name="customerName" required
+                       class="mt-1 block w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 transition duration-300">
+            </div>
+
+            <!-- Items Container -->
+            <div id="itemsContainer" class="space-y-6">
+                <!-- Dynamic item fields will be appended here -->
+            </div>
+
+            <!-- "Add Item" Button -->
+            <button type="button" id="addItemBtn"
+                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-300">
+                Add Item
+            </button>
+
+            <!-- Submit Button -->
+            <button type="submit" id="submitBtn"
+                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-300 mt-6">
+                Submit Order
+            </button>
+        </form>
+    </div>
+
+    <!-- Image Modal -->
+    <div id="imageModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-2xl bg-white">
+            <div class="mt-3 text-center">
+                <img id="modalImage" src="" alt="Sample Image" class="w-full rounded-lg">
+                <div class="mt-4">
+                    <button id="closeImageModalBtn"
+                            class="px-4 py-2 bg-red-500 text-white text-base font-medium rounded-lg shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Status Modal -->
+    <div id="statusModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-2xl bg-white">
+            <div class="mt-3 text-center">
+                <h3 id="statusTitle" class="text-lg leading-6 font-medium text-gray-900"></h3>
+                <div class="mt-2 px-7 py-3">
+                    <p id="statusMessage" class="text-sm text-gray-500"></p>
+                </div>
+                <div class="mt-4">
+                    <button id="closeStatusModalBtn"
+                            class="px-4 py-2 bg-indigo-600 text-white text-base font-medium rounded-lg shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Set the URL for your new AWS API Gateway Endpoint here!
+        // This will be the URL of your POST method in API Gateway.
+        const API_ENDPOINT_URL = 'https://lbzcgfjwii.execute-api.ap-southeast-1.amazonaws.com/v1/orders';
+        
+        // DOM Elements (no changes here)
+        const orderForm = document.getElementById('orderForm');
+        const itemsContainer = document.getElementById('itemsContainer');
+        const addItemBtn = document.getElementById('addItemBtn');
+        const submitBtn = document.getElementById('submitBtn');
+
+        // Modal Elements (no changes here)
+        const imageModal = document.getElementById('imageModal');
+        const modalImage = document.getElementById('modalImage');
+        const closeImageModalBtn = document.getElementById('closeImageModalBtn');
+        const statusModal = document.getElementById('statusModal');
+        const statusTitle = document.getElementById('statusTitle');
+        const statusMessage = document.getElementById('statusMessage');
+        const closeStatusModalBtn = document.getElementById('closeStatusModalBtn');
+
+        // Initial form state
+        let itemCounter = 0;
+        
+        // --- Helper Functions for Modals and Dynamic Fields (no changes here) ---
+        const showImageModal = (imageSrc) => {
+            modalImage.src = imageSrc;
+            imageModal.classList.remove('hidden');
+        };
+
+        const hideImageModal = () => {
+            imageModal.classList.add('hidden');
+        };
+
+        const showStatusModal = (title, message) => {
+            statusTitle.textContent = title;
+            statusMessage.textContent = message;
+            statusModal.classList.remove('hidden');
+        };
+
+        const hideStatusModal = () => {
+            statusModal.classList.add('hidden');
+        };
+
+        const createItemContainer = () => {
+            const id = itemCounter++;
+            const container = document.createElement('div');
+            container.classList.add('p-6', 'border', 'border-gray-300', 'rounded-lg', 'shadow-sm', 'relative');
+            container.dataset.itemId = `item-${id}`;
+            
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.classList.add('absolute', 'top-2', 'right-2');
+            removeBtn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-500 hover:text-red-700 transition" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                </svg>
+            `;
+            removeBtn.addEventListener('click', () => {
+                container.remove();
+            });
+            container.appendChild(removeBtn);
+
+            const variantDiv = document.createElement('div');
+            variantDiv.classList.add('mb-4');
+            variantDiv.innerHTML = `
+                <label for="variant-${id}" class="block text-sm font-medium text-gray-700 mb-1">Keychain Variant</label>
+                <select id="variant-${id}" name="keychainVariant" required
+                        class="mt-1 block w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 transition duration-300">
+                    <option value="">-- Select a variant --</option>
+                    <option value="Version 1">Name Tag Version 1</option>
+                    <option value="Version 2">Name Tag Version 2</option>
+                    <option value="Mini">Name Tag Mini</option>
+                    <option value="Memory">Memory Keychain</option>
+                </select>
+            `;
+            container.appendChild(variantDiv);
+
+            const conditionalContainer = document.createElement('div');
+            conditionalContainer.classList.add('space-y-6');
+            container.appendChild(conditionalContainer);
+
+            const variantSelect = variantDiv.querySelector('select[name="keychainVariant"]');
+            variantSelect.addEventListener('change', (e) => {
+                renderConditionalFields(e.target.value, conditionalContainer);
+            });
+
+            return container;
+        };
+        
+        const createInputField = (label, name, maxLength, required = true) => {
+            const div = document.createElement('div');
+            const inputId = `${name}-${itemCounter}`;
+            div.innerHTML = `
+                <label for="${inputId}" class="block text-sm font-medium text-gray-700 mb-1">${label}</label>
+                <input type="text" id="${inputId}" name="${name}" ${required ? 'required' : ''} maxlength="${maxLength}"
+                    class="mt-1 block w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 transition duration-300">
+                <p class="text-xs text-gray-500 text-right mt-1">
+                    <span id="counter-${inputId}">0</span>/${maxLength} characters
+                </p>
+            `;
+
+            // Add the event listener to the newly created input
+            setTimeout(() => {
+                const input = document.getElementById(inputId);
+                const counter = document.getElementById(`counter-${inputId}`);
+                
+                input.addEventListener('keyup', () => {
+                    counter.textContent = input.value.length;
+                });
+            }, 0);
+
+            return div;
+        };
+        
+        const createTextareaField = (label, name) => {
+            const div = document.createElement('div');
+            div.innerHTML = `
+                <label class="block text-sm font-medium text-gray-700 mb-1">${label}</label>
+                <textarea name="${name}" rows="2" class="mt-1 block w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 transition duration-300"></textarea>
+            `;
+            return div;
+        };
+
+        const createFileInputField = (label, name) => {
+        const div = document.createElement('div');
+        div.innerHTML = `
+            <label class="block text-sm font-medium text-gray-700 mb-1">${label}</label>
+            <input type="file" name="${name}" required
+                class="mt-1 block w-full text-sm text-gray-500
+                    file:mr-4 file:py-2 file:px-4
+                    file:rounded-full file:border-0
+                    file:text-sm file:font-semibold
+                    file:bg-indigo-50 file:text-indigo-700
+                    hover:file:bg-indigo-100 transition duration-300">
+        `;
+        return div;
+    };
+
+        const renderConditionalFields = (variant, parent) => {
+            parent.innerHTML = '';
+            const createDropdownWithModal = (label, name, options, imageUrl) => {
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block text-sm font-medium text-gray-700">${label}</label>
+                        <button type="button" class="text-indigo-600 hover:underline text-xs" data-image-src="${imageUrl}">
+                            Show Styles
+                        </button>
+                    </div>
+                    <select name="${name}" required
+                            class="mt-1 block w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 transition duration-300">
+                        <option value="">-- Select an option --</option>
+                        ${options.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+                    </select>
+                `;
+                div.querySelector('button').addEventListener('click', (e) => {
+                    e.preventDefault();
+                    showImageModal(e.target.dataset.imageSrc);
+                });
+                return div;
+            };
+            
+            if (variant === 'Version 1') {
+                parent.appendChild(createInputField('Text', 'text', 12));
+                parent.appendChild(createDropdownWithModal('Font Style', 'fontStyle', ['Purple Smile', 'Ultra Cream', 'Straw Milky', 'Tan Songbird', 'Sunday School', 'Arista', 'Ezydraw',  'Gantle Brush', 'Sunset Friday', 'Super Cottage', 'Martires', 'Super Malibu', 'Playful Rocket', 'Youthead', 'Quiapo', 'Geoform', 'Kind Daily', 'Marvin', 'Bulgogi', 'Fradle', 'Guns Shop', 'Panicko', 'Street Drips', 'Urban Shadow', 'Sealight Whisper', 'Angelos', 'Cameliya', 'Finalized', 'Grained', 'Megazine', 'Nature Beauty', 'Nautilus Pompil', 'Rapunled', 'Shooting Star', 'Richland', 'Cycha Cockie', 'Garp', 'JumpZingera', 'Pinky Vanilla', 'Rescueto', 'Tropical Leaves', 'Unity Neo'], 'assets/image/fontsV1.png'));
+                parent.appendChild(createDropdownWithModal('Font Color', 'fontColor', ['Black', 'White', 'Red', 'Blue', 'Green', 'Pink', 'Chocolate', 'Coffee', 'Orange', 'Yellow', 'Purple'], 'assets/image/colorSwatches.png'));
+                parent.appendChild(createDropdownWithModal('Background Color', 'backgroundColor', ['Black', 'White', 'Red', 'Blue', 'Green', 'Pink', 'Chocolate', 'Coffee', 'Orange', 'Yellow', 'Purple'], 'assets/image/colorSwatches.png'));
+                parent.appendChild(createDropdownWithModal('Clasp Color', 'claspColor', ['Royal Blue', 'Light Blue', 'Purple', 'Red', 'Pink', 'Orange', 'Yellow', 'Green', 'Mint Green', 'White'], 'assets/image/clasps.jpg'));
+                parent.appendChild(createTextareaField('Note (optional)', 'note'));
+            } else if (variant === 'Version 2') {
+                parent.appendChild(createInputField('Text', 'text', 10));
+                parent.appendChild(createDropdownWithModal('Font Style', 'fontStyle', ['Straw Milky', 'Tan Songbird', 'Ezydraw', 'Super Cottage', 'Super Malibu', 'Playful Rocket', 'Youthead', 'Kind Daily', 'Marvin', 'Bulgogi', 'Fradle', 'Guns Shop', 'Panicko', 'Street Drips', 'Urban Shadow', 'Sealight Whisper', 'Angelos', 'Cameliya', 'Finalized', 'Megazine', 'Nature Beauty', 'Rapunled', 'Shooting Star', 'Richland', 'Cycha Cockie', 'Garp', 'JumpZingera', 'Rescueto', 'Tropical Leaves'], 'assets/image/fontsV2.png'));
+                parent.appendChild(createDropdownWithModal('Font Color', 'fontColor', ['Black', 'White', 'Red', 'Blue', 'Green', 'Pink', 'Chocolate', 'Coffee', 'Orange', 'Yellow', 'Purple'], 'assets/image/colorSwatches.png'));
+                parent.appendChild(createDropdownWithModal('Outline Color', 'outlineColor', ['Black', 'White', 'Red', 'Blue', 'Green', 'Pink', 'Chocolate', 'Coffee', 'Orange', 'Yellow', 'Purple'], 'assets/image/colorSwatches.png'));
+                parent.appendChild(createTextareaField('Note (optional)', 'note'));
+            } else if (variant === 'Mini') {
+                parent.appendChild(createInputField('Text', 'text', 7));
+                parent.appendChild(createDropdownWithModal('Font Style', 'fontStyle', ['Purple Smile', 'Ultra Cream', 'Straw Milky', 'Tan Songbird', 'Sunday School', 'Arista', 'Ezydraw',  'Gantle Brush', 'Sunset Friday', 'Super Cottage', 'Martires', 'Super Malibu', 'Playful Rocket', 'Youthead', 'Quiapo', 'Geoform', 'Kind Daily', 'Marvin', 'Bulgogi', 'Fradle', 'Guns Shop', 'Panicko', 'Street Drips', 'Urban Shadow', 'Sealight Whisper', 'Angelos', 'Cameliya', 'Finalized', 'Grained', 'Megazine', 'Nature Beauty', 'Nautilus Pompil', 'Rapunled', 'Shooting Star', 'Richland', 'Cycha Cockie', 'Garp', 'JumpZingera', 'Pinky Vanilla', 'Rescueto', 'Tropical Leaves', 'Unity Neo'], 'assets/image/fontsV1.png'));
+                parent.appendChild(createDropdownWithModal('Font Color', 'fontColor', ['Black', 'White', 'Red', 'Blue', 'Green', 'Pink', 'Chocolate', 'Coffee', 'Orange', 'Yellow', 'Purple'], 'assets/image/colorSwatches.png'));
+                parent.appendChild(createDropdownWithModal('Frame Color', 'frameColor', ['Black', 'White', 'Red', 'Blue', 'Green', 'Pink', 'Chocolate', 'Coffee', 'Orange', 'Yellow', 'Purple'], 'assets/image/colorSwatches.png'));
+                parent.appendChild(createTextareaField('Note (optional)', 'note'));
+            } else if (variant === 'Memory') {
+                parent.appendChild(createDropdownWithModal('Color', 'memoryKeychainColor', ['Black', 'White', 'Red', 'Blue', 'Green', 'Pink', 'Chocolate', 'Coffee', 'Orange', 'Yellow', 'Purple'], 'assets/image/colorSwatches.png'));
+                // Use the new file input field instead of the text input
+                parent.appendChild(createFileInputField('Photo', 'photoFile'));
+            }
+        };
+        
+        // --- Event Listeners (no changes here) ---
+        addItemBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const newItem = createItemContainer();
+            itemsContainer.appendChild(newItem);
+        });
+
+        closeImageModalBtn.addEventListener('click', hideImageModal);
+        closeStatusModalBtn.addEventListener('click', hideStatusModal);
+
+        // Function to get a pre-signed URL from your backend
+        async function getSignedUrl(fileName, fileType) {
+            // You will need a new API Gateway endpoint for this, e.g., POST /get-signed-url
+            // Your Lambda function for this endpoint will generate the URL
+            // and must have permissions to put objects in your S3 bucket.
+            const url = 'https://wtlw8s1bvj.execute-api.ap-southeast-1.amazonaws.com/v1/get-signed-url';
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                // IMPORTANT: Add fileType to the request body
+                body: JSON.stringify({ fileName: fileName, fileType: fileType }) 
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to get pre-signed URL');
+            }
+            return data;
+        }
+
+        // Function to upload the file using a pre-signed URL
+        async function uploadFile(file, signedUrl) {
+            const response = await fetch(signedUrl, {
+                method: 'PUT',
+                body: file,
+                headers: {
+                    'Content-Type': file.type // Must match the Lambda's ContentType
+                }
+            });
+
+            if (!response.ok) {
+                console.log(response);
+                throw new Error('Failed to upload file to S3.');
+            }
+        }
+
+       // --- Corrected and Revised Form Submission Logic ---
+        orderForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+
+            const customerName = document.getElementById('customerName').value;
+            const items = [];
+            const itemElements = itemsContainer.querySelectorAll('[data-item-id]');
+
+            if (itemElements.length === 0) {
+                showStatusModal('Error', 'Please add at least one item to your order.');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Order';
+                return;
+            }
+
+            try {
+                // Loop through each item container to gather data and handle file uploads
+                for (const itemEl of itemElements) {
+                    const itemData = {};
+                    const inputs = itemEl.querySelectorAll('input, select, textarea');
+                    const fileInput = itemEl.querySelector('input[type="file"]');
+                    
+                    inputs.forEach(input => {
+                        if (input.name) {
+                            itemData[input.name] = input.value;
+                        }
+                    });
+
+                    if (itemData.keychainVariant === 'Memory' && fileInput && fileInput.files[0]) {
+                        const file = fileInput.files[0];
+                        const fileName = `order-uploads/${Date.now()}-${file.name}`;
+                        
+                        // CRITICAL CHANGE: Pass both fileName and file.type to getSignedUrl
+                        const signedUrlResponse = await getSignedUrl(fileName, file.type);
+                        const { signedUrl, fileKey } = signedUrlResponse;
+
+                        await uploadFile(file, signedUrl);
+                        
+                        itemData.photoUrl = fileKey;
+                    }
+
+                    const orderItem = {
+                        'keychainVariant': itemData.keychainVariant || '',
+                        'text': itemData.text || '',
+                        'fontStyle': itemData.fontStyle || '',
+                        'fontColor': itemData.fontColor || '',
+                        'backgroundColor': itemData.backgroundColor || '',
+                        'claspColor': itemData.claspColor || '',
+                        'outlineColor': itemData.outlineColor || '',
+                        'frameColor': itemData.frameColor || '',
+                        'memoryKeychainColor': itemData.memoryKeychainColor || '',
+                        'note': itemData.note || '',
+                        'photoUrl': itemData.photoUrl || ''
+                    };
+                    items.push(orderItem);
+                }
+
+                const orderData = {
+                    'customerName': customerName,
+                    'timestamp': new Date().toISOString(),
+                    'items': items
+                };
+
+                const response = await fetch(API_ENDPOINT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify(orderData),
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    showStatusModal('Order Submitted!', 'Your order has been sent successfully. We will contact you soon!');
+                    orderForm.reset();
+                    itemsContainer.innerHTML = '';
+                    itemCounter = 0;
+                } else {
+                    const errorData = await response.json();
+                    showStatusModal('Submission Error', `Failed to submit order: ${errorData.message}`);
+                }
+            } catch (error) {
+                showStatusModal('Network Error', `A network error occurred: ${error.message}`);
+                console.error('Submission error:', error);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Order';
+            }
+        });
+    </script>
+</body>
+</html>
